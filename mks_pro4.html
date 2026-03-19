@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MKS CRM PRO 1 - Titanium Security v3.0</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .clickable-row:hover { cursor: pointer; background-color: rgba(99, 102, 241, 0.05); }
+        .sidebar-btn { transition: all 0.2s; border-radius: 12px; margin-bottom: 4px; }
+        .sidebar-btn:hover { background-color: #312e81; padding-left: 1.5rem; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+    </style>
+</head>
+<body class="bg-slate-50 font-sans h-screen flex overflow-hidden">
+
+    <audio id="alarmSound" src="https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3" preload="auto"></audio>
+
+    <div id="loginOverlay" class="fixed inset-0 bg-indigo-950 z-[1000] flex justify-center items-center p-4">
+        <div class="bg-white p-10 rounded-3xl shadow-2xl w-full max-w-md text-center">
+            <h1 class="text-3xl font-black text-gray-800 mb-2 italic">MKS <span class="text-indigo-600">PRO 1</span></h1>
+            <p class="text-gray-400 text-xs font-bold mb-8 uppercase tracking-widest">Titanium Security System</p>
+            <input type="text" id="loginUser" placeholder="IDENTIFIANT" class="w-full p-4 border-2 rounded-2xl mb-4 text-center font-bold outline-none focus:border-indigo-500">
+            <input type="password" id="loginPass" placeholder="MOT DE PASSE" class="w-full p-4 border-2 rounded-2xl mb-6 text-center font-bold outline-none focus:border-indigo-500">
+            <button onclick="handleLogin()" class="w-full bg-indigo-600 text-white p-4 rounded-2xl font-bold hover:bg-indigo-700 shadow-lg transition-transform active:scale-95">ACCÉDER AU SYSTÈME</button>
+            <p id="loginError" class="text-red-500 text-xs mt-4 font-bold hidden italic">Accès refusé : Identifiants incorrects</p>
+        </div>
+    </div>
+
+    <aside id="mainSidebar" class="w-72 bg-indigo-950 text-white flex flex-col h-full hidden z-40">
+        <div class="p-8 border-b border-indigo-900">
+            <p class="text-2xl font-black italic">MKS <span class="text-indigo-400">PRO 1</span></p>
+            <div id="userLabel" class="text-[10px] mt-2 bg-indigo-800 px-3 py-1 rounded-full inline-block font-bold uppercase tracking-wider"></div>
+        </div>
+        <nav class="flex-grow p-4 space-y-1 overflow-y-auto">
+            <button onclick="switchTab('dashboard')" class="sidebar-btn w-full text-left p-4 flex items-center"><i class="fas fa-chart-pie mr-4 w-5"></i> Dashboard</button>
+            <button onclick="switchTab('prospects')" class="sidebar-btn w-full text-left p-4 flex items-center"><i class="fas fa-users mr-4 w-5"></i> Clients & Prospects</button>
+            <button onclick="switchTab('tasks')" class="sidebar-btn w-full text-left p-4 flex items-center"><i class="fas fa-list-check mr-4 w-5"></i> Tâches CRM</button>
+            <button onclick="switchTab('meetings')" class="sidebar-btn w-full text-left p-4 flex items-center"><i class="fas fa-handshake mr-4 w-5"></i> Réunions</button>
+            <div class="pt-4 pb-2 px-4 text-[10px] font-black text-indigo-400 uppercase tracking-widest">Ma Productivité</div>
+            <button onclick="switchTab('todolist')" class="sidebar-btn w-full text-left p-4 flex items-center text-yellow-400 font-bold bg-indigo-900/50"><i class="fas fa-star mr-4 w-5"></i> TO-DO LIST PRO</button>
+            <button onclick="switchTab('usersTab')" class="admin-only sidebar-btn w-full text-left p-4 flex items-center text-orange-400"><i class="fas fa-shield-halved mr-4 w-5"></i> Sécurité & Backup</button>
+        </nav>
+        <div class="p-4 border-t border-indigo-900">
+            <button onclick="location.reload()" class="w-full p-3 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl font-bold text-xs uppercase hover:bg-red-500 hover:text-white transition">Déconnexion</button>
+        </div>
+    </aside>
+
+    <main id="mainContent" class="flex-1 overflow-y-auto hidden">
+        <header class="bg-white border-b p-6 flex justify-between items-center sticky top-0 z-30 shadow-sm">
+            <div>
+                <h2 id="tabTitle" class="text-xl font-black uppercase text-indigo-900 tracking-tight">Tableau de Bord</h2>
+                <p class="text-[10px] text-gray-400 font-bold uppercase" id="currentDateDisplay"></p>
+            </div>
+            <div class="flex items-center gap-4">
+                <div id="liveClock" class="font-mono bg-slate-100 px-4 py-2 rounded-2xl text-indigo-600 font-black shadow-inner"></div>
+                <button onclick="generateWeeklyReport()" class="bg-emerald-600 text-white px-5 py-2 rounded-xl font-bold text-sm flex items-center hover:bg-emerald-700 transition shadow-lg">
+                    <i class="fas fa-file-pdf mr-2"></i> RAPPORT PDF
+                </button>
+            </div>
+        </header>
+
+        <div class="p-8 max-w-7xl mx-auto">
+            
+            <div id="dashboard" class="tab-content active">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                    <div onclick="switchTab('prospects')" class="bg-white p-6 rounded-3xl shadow-sm border-b-4 border-blue-500 cursor-pointer hover:-translate-y-1 transition-all">
+                        <p class="text-[10px] text-gray-400 font-bold uppercase mb-1">Base Contacts</p>
+                        <h3 id="dash-prospects" class="text-4xl font-black text-slate-800">0</h3>
+                    </div>
+                    <div onclick="switchTab('tasks')" class="bg-white p-6 rounded-3xl shadow-sm border-b-4 border-orange-500 cursor-pointer hover:-translate-y-1 transition-all">
+                        <p class="text-[10px] text-gray-400 font-bold uppercase mb-1">Tâches en cours</p>
+                        <h3 id="dash-tasks" class="text-4xl font-black text-slate-800">0</h3>
+                    </div>
+                    <div onclick="switchTab('meetings')" class="bg-white p-6 rounded-3xl shadow-sm border-b-4 border-purple-500 cursor-pointer hover:-translate-y-1 transition-all">
+                        <p class="text-[10px] text-gray-400 font-bold uppercase mb-1">Réunions</p>
+                        <h3 id="dash-meetings" class="text-4xl font-black text-slate-800">0</h3>
+                    </div>
+                    <div onclick="switchTab('todolist')" class="bg-white p-6 rounded-3xl shadow-sm border-b-4 border-yellow-500 cursor-pointer hover:-translate-y-1 transition-all">
+                        <p class="text-[10px] text-gray-400 font-bold uppercase mb-1">Actions To-Do</p>
+                        <h3 id="dash-todo" class="text-4xl font-black text-slate-800">0</h3>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="bg-white p-8 rounded-3xl shadow-sm h-80 flex flex-col items-center">
+                        <p class="font-bold text-gray-500 mb-4 uppercase text-xs">Répartition Contacts</p>
+                        <canvas id="statusChart"></canvas>
+                    </div>
+                    <div class="bg-indigo-900 p-8 rounded-3xl shadow-sm text-white flex flex-col justify-center relative overflow-hidden">
+                        <i class="fas fa-shield-alt absolute -right-10 -bottom-10 text-9xl text-white/10"></i>
+                        <h4 class="text-2xl font-black mb-2 italic">MKS Titanium Pro</h4>
+                        <p class="text-indigo-200 text-sm">Votre système est sécurisé. Pensez à exporter vos données chaque soir via l'onglet Sécurité.</p>
+                        <button onclick="exportData()" class="mt-6 bg-white/10 hover:bg-white/20 border border-white/20 p-3 rounded-xl font-bold text-xs w-max">EXPORTER MAINTENANT</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="prospects" class="tab-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold">Base Prospects & Clients</h3>
+                    <button onclick="openCreateProspect()" class="admin-only bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold shadow-md hover:bg-indigo-700">+ Nouveau Contact</button>
+                </div>
+                <div class="bg-white rounded-3xl shadow-sm overflow-hidden border border-slate-100">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 text-[10px] uppercase text-gray-400 font-black">
+                            <tr>
+                                <th class="p-4">Type</th>
+                                <th class="p-4">Identité</th>
+                                <th class="p-4">Société / R.S</th>
+                                <th class="p-4">Gestionnaire</th>
+                                <th class="p-4">Origine</th>
+                                <th class="p-4">Statut</th>
+                            </tr>
+                        </thead>
+                        <tbody id="prospectsTable" class="divide-y text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="tasks" class="tab-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold">Suivi des Tâches</h3>
+                    <button onclick="openCreateTask()" class="admin-only bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold shadow-md">+ Créer Tâche</button>
+                </div>
+                <div class="bg-white rounded-3xl shadow-sm overflow-hidden border border-slate-100">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 text-[10px] uppercase text-gray-400 font-black">
+                            <tr><th class="p-4">Sujet</th><th class="p-4">Échéance</th><th class="p-4">Priorité</th><th class="p-4">État</th><th class="p-4">Responsable</th></tr>
+                        </thead>
+                        <tbody id="tasksTable" class="divide-y text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="meetings" class="tab-content">
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold">Agenda & Réunions</h3>
+                    <button onclick="openCreateMeeting()" class="admin-only bg-indigo-600 text-white px-6 py-2 rounded-xl font-bold shadow-md">+ Programmer</button>
+                </div>
+                <div class="bg-white rounded-3xl shadow-sm overflow-hidden border border-slate-100">
+                    <table class="w-full text-left">
+                        <thead class="bg-slate-50 text-[10px] uppercase text-gray-400 font-black">
+                            <tr><th class="p-4">Titre</th><th class="p-4">Date/Heure</th><th class="p-4">Lieu</th><th class="p-4">Hôte</th></tr>
+                        </thead>
+                        <tbody id="meetingsTable" class="divide-y text-sm"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="todolist" class="tab-content">
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                    <div class="lg:col-span-1 bg-white p-8 rounded-3xl shadow-lg border-t-4 border-yellow-400 h-max sticky top-24">
+                        <h3 class="font-black mb-4 uppercase text-indigo-900 flex items-center gap-2">
+                            <i class="fas fa-bolt text-yellow-500"></i> Action Rapide
+                        </h3>
+                        <div class="space-y-4">
+                            <div>
+                                <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Quoi faire ?</label>
+                                <input type="text" id="todo_text" placeholder="Ex: Envoyer le devis à..." class="w-full p-4 border rounded-2xl bg-slate-50 outline-none focus:border-indigo-400">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Rappel Alarme (Date/Heure)</label>
+                                <input type="datetime-local" id="todo_time" class="w-full p-4 border rounded-2xl bg-slate-50 outline-none">
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Lier à un contact</label>
+                                <select id="todo_link" class="w-full p-4 border rounded-2xl bg-slate-50 outline-none font-medium"></select>
+                            </div>
+                            <div>
+                                <label class="text-[10px] font-black text-gray-400 uppercase ml-1">Niveau d'urgence</label>
+                                <select id="todo_urgency" class="w-full p-4 border rounded-2xl bg-slate-50 outline-none font-black text-sm">
+                                    <option value="Normal">NORMAL</option>
+                                    <option value="Urgent">⚠️ URGENT</option>
+                                    <option value="Vital">🔥 CRITIQUE / VITAL</option>
+                                </select>
+                            </div>
+                            <button onclick="addTodo()" class="w-full bg-indigo-900 text-white p-5 rounded-2xl font-black hover:bg-black transition shadow-xl uppercase tracking-widest">Ajouter à ma liste</button>
+                        </div>
+                    </div>
+                    <div class="lg:col-span-2 space-y-4">
+                        <div class="flex justify-between items-end mb-4">
+                            <h3 class="font-black uppercase text-sm tracking-widest text-slate-400">Mes engagements du jour</h3>
+                        </div>
+                        <div id="todoListContainer" class="space-y-3"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="usersTab" class="tab-content">
+                <div class="flex justify-between items-center mb-8">
+                    <h3 class="text-xl font-bold text-orange-500 uppercase tracking-tighter">Sécurité & Sauvegardes</h3>
+                    <button onclick="openModal('userCreateModal')" class="bg-slate-800 text-white px-6 py-2 rounded-xl font-bold">+ Créer Utilisateur</button>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                    <div class="bg-indigo-50 p-8 rounded-3xl border-2 border-dashed border-indigo-200">
+                        <h4 class="font-black text-indigo-900 mb-4 uppercase text-sm"><i class="fas fa-download mr-2"></i> Export de données</h4>
+                        <p class="text-sm text-indigo-700/70 mb-6">Génère un fichier de sécurité contenant toute votre base MKS (prospects, tâches, todo).</p>
+                        <button onclick="exportData()" class="w-full bg-indigo-600 text-white p-4 rounded-2xl font-bold shadow-lg hover:bg-indigo-700 transition">TÉLÉCHARGER LE BACKUP (.MKS)</button>
+                    </div>
+                    <div class="bg-orange-50 p-8 rounded-3xl border-2 border-dashed border-orange-200">
+                        <h4 class="font-black text-orange-900 mb-4 uppercase text-sm"><i class="fas fa-upload mr-2"></i> Restauration</h4>
+                        <p class="text-sm text-orange-700/70 mb-6">Importez un fichier .mks pour restaurer l'intégralité du CRM sur cet appareil.</p>
+                        <input type="file" id="importFile" class="hidden" onchange="importData(event)">
+                        <button onclick="document.getElementById('importFile').click()" class="w-full bg-orange-500 text-white p-4 rounded-2xl font-bold shadow-lg hover:bg-orange-600 transition">IMPORTER UN FICHIER</button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-3xl shadow-sm p-6">
+                    <h4 class="font-bold mb-4">Comptes Utilisateurs</h4>
+                    <div id="usersListTable" class="space-y-2"></div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div id="editModal" class="fixed inset-0 bg-slate-900/90 hidden flex justify-center items-center z-[1000] p-4 backdrop-blur-sm">
+        <div class="bg-white rounded-[2rem] w-full max-w-4xl p-10 shadow-2xl max-h-[90vh] overflow-y-auto relative border border-white/20">
+            <button onclick="closeModal('editModal')" class="absolute top-6 right-6 text-slate-300 hover:text-red-500 transition-colors"><i class="fas fa-times-circle text-3xl"></i></button>
+            <div id="modalContent"></div>
+            
+            <div id="docSection" class="mt-8 border-t pt-8 hidden">
+                <h3 class="font-black text-indigo-900 uppercase text-sm mb-4 tracking-widest"><i class="fas fa-folder-tree mr-2"></i> Gestionnaire de Documents</h3>
+                <div class="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                    <div class="flex gap-3 mb-6">
+                        <input type="text" id="doc_name" placeholder="Nom du doc (Contrat, Plan...)" class="flex-1 p-4 border rounded-2xl text-sm outline-none focus:border-indigo-400">
+                        <input type="text" id="doc_url" placeholder="Lien Cloud / URL" class="flex-1 p-4 border rounded-2xl text-sm outline-none focus:border-indigo-400">
+                        <button onclick="addDocumentToProspect()" class="bg-indigo-600 text-white px-6 rounded-2xl font-black hover:bg-black transition">+</button>
+                    </div>
+                    <div id="prospectDocsList" class="grid grid-cols-1 md:grid-cols-2 gap-3"></div>
+                </div>
+            </div>
+
+            <div class="flex gap-4 mt-10 pt-8 border-t">
+                <button id="modalSaveBtn" class="flex-1 bg-indigo-600 text-white p-5 rounded-2xl font-black shadow-xl hover:bg-indigo-700 transition uppercase tracking-widest">Enregistrer les modifications</button>
+                <button id="modalDeleteBtn" class="bg-red-50 text-red-500 px-8 rounded-2xl font-bold hover:bg-red-500 hover:text-white transition">Supprimer</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="userCreateModal" class="fixed inset-0 bg-slate-950/80 hidden flex justify-center items-center z-[1000] p-4">
+        <div class="bg-white rounded-3xl w-full max-w-sm p-8 shadow-2xl">
+            <h2 class="text-xl font-black mb-6 uppercase">Nouveau Compte</h2>
+            <input type="text" id="newUsername" placeholder="Identifiant" class="w-full p-4 border rounded-2xl mb-4 bg-slate-50 outline-none">
+            <input type="password" id="newUserPass" placeholder="Mot de passe" class="w-full p-4 border rounded-2xl mb-4 bg-slate-50 outline-none">
+            <select id="newUserRole" class="w-full p-4 border rounded-2xl mb-6 bg-slate-50 font-bold outline-none">
+                <option value="visitor">Visiteur</option>
+                <option value="admin">Administrateur</option>
+            </select>
+            <button onclick="saveNewUser()" class="w-full bg-orange-500 text-white p-4 rounded-2xl font-bold shadow-lg">CRÉER LE COMPTE</button>
+            <button onclick="closeModal('userCreateModal')" class="w-full mt-4 text-gray-400 text-xs font-bold uppercase">Annuler</button>
+        </div>
+    </div>
+
+    <div id="alarmPopup" class="fixed bottom-10 right-10 bg-red-600 text-white p-6 rounded-3xl shadow-2xl hidden z-[2000] max-w-sm animate-bounce ring-8 ring-red-600/20">
+        <div class="flex items-center gap-4">
+            <div class="bg-white/20 p-4 rounded-2xl"><i class="fas fa-bell text-3xl"></i></div>
+            <div class="flex-1">
+                <p class="font-black text-lg">MKS RAPPEL !</p>
+                <p id="alarmText" class="text-sm opacity-90"></p>
+            </div>
+            <button onclick="closeAlarm()" class="bg-white text-red-600 w-10 h-10 rounded-full font-black flex items-center justify-center shadow-lg">OK</button>
+        </div>
+    </div>
+
+    <script>
+        let currentUser = null;
+        let currentEditingId = null;
+        let charts = {};
+
+        // Base de données simulée
+        const db = {
+            get: (key) => JSON.parse(localStorage.getItem('mks_v3_' + key)) || [],
+            set: (key, data) => { 
+                localStorage.setItem('mks_v3_' + key, JSON.stringify(data)); 
+                refresh(); 
+            }
+        };
+
+        // --- AUTH ---
+        function handleLogin() {
+            const u = document.getElementById('loginUser').value.trim();
+            const p = document.getElementById('loginPass').value.trim();
+            let users = JSON.parse(localStorage.getItem('mks_users')) || [{user: 'MKSCOM', pass: 'EPEUG35', role: 'admin'}];
+            
+            const found = users.find(x => x.user === u && x.pass === p);
+            if(found) {
+                currentUser = found;
+                document.getElementById('loginOverlay').classList.add('hidden');
+                document.getElementById('mainSidebar').classList.remove('hidden');
+                document.getElementById('mainContent').classList.remove('hidden');
+                document.getElementById('userLabel').innerText = `${found.user} | ${found.role}`;
+                
+                if(found.role !== 'admin') {
+                    document.querySelectorAll('.admin-only').forEach(el => el.style.display = 'none');
+                }
+                
+                refresh();
+                startAlarmChecker();
+                document.getElementById('currentDateDisplay').innerText = new Date().toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            } else { 
+                document.getElementById('loginError').classList.remove('hidden'); 
+            }
+        }
+
+        // --- GESTION PROSPECTS ---
+        function openCreateProspect() {
+            currentEditingId = null;
+            const content = `
+                <h2 class="text-3xl font-black mb-2 uppercase text-indigo-900 italic">Fiche Contact</h2>
+                <p class="text-xs font-bold text-gray-400 mb-8 uppercase tracking-widest border-b pb-4">Création ou modification de prospect/client</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <div>
+                        <label class="text-[10px] font-black text-indigo-400 uppercase">Type de relation</label>
+                        <select id="pr_type" class="w-full p-4 border rounded-2xl bg-slate-50 font-black mb-4">
+                            <option value="PROSPECT">PROSPECT</option>
+                            <option value="CLIENT">CLIENT</option>
+                        </select>
+                        <label class="text-[10px] font-black text-indigo-400 uppercase">Identité complète</label>
+                        <input type="text" id="pr_name" class="w-full p-4 border rounded-2xl bg-slate-50 mb-4" placeholder="Nom Prénom">
+                        <label class="text-[10px] font-black text-indigo-400 uppercase">Gestionnaire du dossier</label>
+                        <input type="text" id="pr_manager" value="${currentUser.user}" class="w-full p-4 border rounded-2xl bg-slate-50 font-bold">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-indigo-400 uppercase">Nom de l'entreprise</label>
+                        <input type="text" id="pr_company" class="w-full p-4 border rounded-2xl bg-slate-50 mb-4" placeholder="Raison sociale">
+                        <label class="text-[10px] font-black text-indigo-400 uppercase">Site Web Officiel</label>
+                        <input type="text" id="pr_web" class="w-full p-4 border rounded-2xl bg-slate-50 mb-4" placeholder="https://...">
+                        <label class="text-[10px] font-black text-indigo-400 uppercase">Réseaux Sociaux (R.S)</label>
+                        <input type="text" id="pr_rs" class="w-full p-4 border rounded-2xl bg-slate-50 font-bold" placeholder="LinkedIn, FB...">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-indigo-400 uppercase">Canal d'origine</label>
+                        <input type="text" id="pr_origin" class="w-full p-4 border rounded-2xl bg-slate-50 mb-4" placeholder="Ex: Salon, Email, Recommandation">
+                        <label class="text-[10px] font-black text-indigo-400 uppercase">Statut commercial</label>
+                        <select id="pr_status" class="w-full p-4 border rounded-2xl bg-slate-50 font-black">
+                            <option>Non contacté</option>
+                            <option>En cours de discussion</option>
+                            <option>Attente de devis</option>
+                            <option>Contrat Gagné</option>
+                            <option>Perdu / Abandonné</option>
+                        </select>
+                    </div>
+                </div>`;
+            document.getElementById('modalContent').innerHTML = content;
+            document.getElementById('docSection').classList.add('hidden');
+            document.getElementById('modalSaveBtn').onclick = () => saveProspect();
+            document.getElementById('modalDeleteBtn').classList.add('hidden');
+            openModal('editModal');
+        }
+
+        function editProspect(id) {
+            currentEditingId = id;
+            const p = db.get('prospects').find(x => x.id === id);
+            openCreateProspect();
+            document.getElementById('docSection').classList.remove('hidden');
+            document.getElementById('modalSaveBtn').onclick = () => saveProspect(id);
+            document.getElementById('modalDeleteBtn').classList.remove('hidden');
+            document.getElementById('modalDeleteBtn').onclick = () => {
+                if(confirm("Confirmer la suppression ?")) {
+                    db.set('prospects', db.get('prospects').filter(x => x.id !== id));
+                    closeModal('editModal');
+                }
+            };
+            // Remplissage
+            document.getElementById('pr_type').value = p.type;
+            document.getElementById('pr_name').value = p.name;
+            document.getElementById('pr_company').value = p.company;
+            document.getElementById('pr_manager').value = p.manager;
+            document.getElementById('pr_web').value = p.web || '';
+            document.getElementById('pr_rs').value = p.rs || '';
+            document.getElementById('pr_origin').value = p.origin;
+            document.getElementById('pr_status').value = p.status;
+            renderDocs(p.docs || []);
+        }
+
+        function saveProspect(id = null) {
+            let data = db.get('prospects');
+            const entry = {
+                id: id || Date.now(),
+                type: document.getElementById('pr_type').value,
+                name: document.getElementById('pr_name').value,
+                manager: document.getElementById('pr_manager').value,
+                company: document.getElementById('pr_company').value,
+                web: document.getElementById('pr_web').value,
+                rs: document.getElementById('pr_rs').value,
+                origin: document.getElementById('pr_origin').value,
+                status: document.getElementById('pr_status').value,
+                docs: id ? (data.find(x => x.id === id).docs || []) : []
+            };
+            if(id) data = data.map(x => x.id === id ? entry : x);
+            else data.push(entry);
+            db.set('prospects', data);
+            closeModal('editModal');
+        }
+
+        // --- GESTION DOCUMENTS ---
+        function addDocumentToProspect() {
+            const name = document.getElementById('doc_name').value;
+            const url = document.getElementById('doc_url').value;
+            if(!name || !url) return;
+            
+            let prospects = db.get('prospects');
+            prospects = prospects.map(p => {
+                if(p.id === currentEditingId) {
+                    const newDocs = p.docs || [];
+                    newDocs.push({ name, url, date: new Date().toLocaleDateString() });
+                    p.docs = newDocs;
+                    renderDocs(p.docs);
+                }
+                return p;
+            });
+            db.set('prospects', prospects);
+            document.getElementById('doc_name').value = '';
+            document.getElementById('doc_url').value = '';
+        }
+
+        function renderDocs(docs) {
+            document.getElementById('prospectDocsList').innerHTML = docs.map((d, i) => `
+                <div class="bg-white p-3 rounded-xl border flex justify-between items-center text-xs">
+                    <div>
+                        <p class="font-black text-indigo-600 uppercase">${d.name}</p>
+                        <p class="text-[9px] text-gray-400 italic">Ajouté le ${d.date}</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <a href="${d.url}" target="_blank" class="p-2 bg-slate-100 rounded-lg hover:bg-indigo-600 hover:text-white"><i class="fas fa-external-link-alt"></i></a>
+                        <button onclick="removeDoc(${i})" class="p-2 text-red-300 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>`).join('');
+        }
+
+        function removeDoc(index) {
+            let data = db.get('prospects');
+            data = data.map(p => {
+                if(p.id === currentEditingId) p.docs.splice(index, 1);
+                return p;
+            });
+            db.set('prospects', data);
+            renderDocs(data.find(x => x.id === currentEditingId).docs);
+        }
+
+        // --- GESTION TACHES CRM ---
+        function openCreateTask() {
+            const content = `
+                <h2 class="text-3xl font-black mb-6 uppercase text-indigo-900 italic">Créer une Tâche</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div>
+                        <label class="text-[10px] font-black text-indigo-400 uppercase">Sujet / Objectif</label>
+                        <input type="text" id="tk_subject" class="w-full p-4 border rounded-2xl bg-slate-50 mb-4 font-bold" placeholder="Titre de la mission">
+                        <label class="text-[10px] font-black text-indigo-400 uppercase">État actuel</label>
+                        <select id="tk_state" class="w-full p-4 border rounded-2xl bg-slate-50 font-black mb-4">
+                            <option>Non commencée</option>
+                            <option>Commencée</option>
+                            <option>En cours</option>
+                            <option>Terminée</option>
+                            <option>Abandonnée</option>
+                        </select>
+                        <label class="text-[10px] font-black text-indigo-400 uppercase">Responsable</label>
+                        <input type="text" id="tk_resp" value="${currentUser.user}" class="w-full p-4 border rounded-2xl bg-slate-50 font-bold">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-indigo-400 uppercase">Date d'échéance</label>
+                        <input type="date" id="tk_due" class="w-full p-4 border rounded-2xl bg-slate-50 mb-4 font-bold">
+                        <label class="text-[10px] font-black text-indigo-400 uppercase">Priorité</label>
+                        <select id="tk_priority" class="w-full p-4 border rounded-2xl bg-slate-50 font-black">
+                            <option>Basse</option>
+                            <option>Normale</option>
+                            <option>Urgente</option>
+                        </select>
+                    </div>
+                </div>`;
+            document.getElementById('modalContent').innerHTML = content;
+            document.getElementById('docSection').classList.add('hidden');
+            document.getElementById('modalSaveBtn').onclick = () => saveTask();
+            document.getElementById('modalDeleteBtn').classList.add('hidden');
+            openModal('editModal');
+        }
+
+        function editTask(id) {
+            const t = db.get('tasks').find(x => x.id === id);
+            openCreateTask();
+            document.getElementById('tk_subject').value = t.subject;
+            document.getElementById('tk_state').value = t.state;
+            document.getElementById('tk_resp').value = t.resp;
+            document.getElementById('tk_due').value = t.due;
+            document.getElementById('tk_priority').value = t.priority;
+            document.getElementById('modalSaveBtn').onclick = () => saveTask(id);
+            document.getElementById('modalDeleteBtn').classList.remove('hidden');
+            document.getElementById('modalDeleteBtn').onclick = () => {
+                db.set('tasks', db.get('tasks').filter(x => x.id !== id));
+                closeModal('editModal');
+            };
+        }
+
+        function saveTask(id = null) {
+            let data = db.get('tasks');
+            const entry = {
+                id: id || Date.now(),
+                subject: document.getElementById('tk_subject').value,
+                state: document.getElementById('tk_state').value,
+                resp: document.getElementById('tk_resp').value,
+                due: document.getElementById('tk_due').value,
+                priority: document.getElementById('tk_priority').value
+            };
+            if(id) data = data.map(x => x.id === id ? entry : x);
+            else data.push(entry);
+            db.set('tasks', data);
+            closeModal('editModal');
+        }
+
+        // --- GESTION REUNIONS ---
+        function openCreateMeeting() {
+            const content = `
+                <h2 class="text-3xl font-black mb-6 uppercase text-indigo-900 italic">Programmer une Réunion</h2>
+                <label class="text-[10px] font-black text-indigo-400 uppercase">Intitulé de la réunion</label>
+                <input type="text" id="mt_title" class="w-full p-4 border rounded-2xl bg-slate-50 mb-4 font-bold" placeholder="Objet de la rencontre">
+                <div class="grid grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="text-[10px] font-black text-indigo-400 uppercase">Date & Heure</label>
+                        <input type="datetime-local" id="mt_time" class="w-full p-4 border rounded-2xl bg-slate-50 font-bold">
+                    </div>
+                    <div>
+                        <label class="text-[10px] font-black text-indigo-400 uppercase">Lieu / Lien Visioconférence</label>
+                        <input type="text" id="mt_loc" class="w-full p-4 border rounded-2xl bg-slate-50 font-bold" placeholder="Salle A ou Zoom...">
+                    </div>
+                </div>
+                <label class="text-[10px] font-black text-indigo-400 uppercase">Organisateur (Hôte)</label>
+                <input type="text" id="mt_host" value="${currentUser.user}" class="w-full p-4 border rounded-2xl bg-slate-50 font-bold">`;
+            document.getElementById('modalContent').innerHTML = content;
+            document.getElementById('docSection').classList.add('hidden');
+            document.getElementById('modalSaveBtn').onclick = () => saveMeeting();
+            document.getElementById('modalDeleteBtn').classList.add('hidden');
+            openModal('editModal');
+        }
+
+        function editMeeting(id) {
+            const m = db.get('meetings').find(x => x.id === id);
+            openCreateMeeting();
+            document.getElementById('mt_title').value = m.title;
+            document.getElementById('mt_time').value = m.time;
+            document.getElementById('mt_loc').value = m.loc;
+            document.getElementById('mt_host').value = m.host;
+            document.getElementById('modalSaveBtn').onclick = () => saveMeeting(id);
+            document.getElementById('modalDeleteBtn').classList.remove('hidden');
+            document.getElementById('modalDeleteBtn').onclick = () => {
+                db.set('meetings', db.get('meetings').filter(x => x.id !== id));
+                closeModal('editModal');
+            };
+        }
+
+        function saveMeeting(id = null) {
+            let data = db.get('meetings');
+            const entry = {
+                id: id || Date.now(),
+                title: document.getElementById('mt_title').value,
+                time: document.getElementById('mt_time').value,
+                loc: document.getElementById('mt_loc').value,
+                host: document.getElementById('mt_host').value
+            };
+            if(id) data = data.map(x => x.id === id ? entry : x);
+            else data.push(entry);
+            db.set('meetings', data);
+            closeModal('editModal');
+        }
+
+        // --- TO-DO LIST PRO ---
+        function addTodo() {
+            const text = document.getElementById('todo_text').value;
+            const time = document.getElementById('todo_time').value;
+            const link = document.getElementById('todo_link').value;
+            const urg = document.getElementById('todo_urgency').value;
+            if(!text) return;
+
+            let data = db.get('todos');
+            data.push({ id: Date.now(), text, time, link, urgency: urg, done: false });
+            db.set('todos', data);
+            
+            document.getElementById('todo_text').value = '';
+            document.getElementById('todo_time').value = '';
+        }
+
+        function toggleTodo(id) {
+            let data = db.get('todos');
+            data = data.map(x => x.id === id ? {...x, done: !x.done} : x);
+            db.set('todos', data);
+        }
+
+        // --- GENERATION RAPPORT PDF ---
+        async function generateWeeklyReport() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const now = new Date().toLocaleString();
+            
+            // Header
+            doc.setFillColor(15, 23, 42);
+            doc.rect(0, 0, 210, 40, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(22);
+            doc.text("RAPPORT D'ACTIVITÉ MKS PRO 1", 15, 20);
+            doc.setFontSize(9);
+            doc.text(`TITANIUM SECURITY - GÉNÉRÉ LE : ${now} | AGENT : ${currentUser.user}`, 15, 30);
+
+            // Stats
+            doc.setTextColor(0,0,0);
+            doc.setFontSize(14);
+            doc.text("1. RÉSUMÉ STATISTIQUE", 15, 55);
+            doc.autoTable({
+                startY: 60,
+                head: [['Rubrique', 'Quantité']],
+                body: [
+                    ['Total Prospects/Clients', db.get('prospects').length],
+                    ['Tâches CRM en cours', db.get('tasks').filter(x=>x.state!=='Terminée').length],
+                    ['Réunions à venir', db.get('meetings').length],
+                    ['Actions To-Do urgentes', db.get('todos').filter(x=>!x.done && x.urgency!=='Normal').length]
+                ],
+                theme: 'striped',
+                headStyles: { fillStyle: [99, 102, 241] }
+            });
+
+            // Tableau Contacts
+            doc.text("2. BASE CONTACTS RÉCENTE", 15, doc.lastAutoTable.finalY + 15);
+            const pData = db.get('prospects').map(p => [p.type, p.name, p.company, p.origin, p.status]);
+            doc.autoTable({
+                startY: doc.lastAutoTable.finalY + 20,
+                head: [['Type', 'Identité', 'Société', 'Origine', 'Statut']],
+                body: pData,
+                theme: 'grid'
+            });
+
+            doc.save(`RAPPORT_MKS_${new Date().toISOString().split('T')[0]}.pdf`);
+        }
+
+        // --- BACKUP & EXPORT ---
+        function exportData() {
+            const fullData = {
+                prospects: db.get('prospects'),
+                tasks: db.get('tasks'),
+                meetings: db.get('meetings'),
+                todos: db.get('todos'),
+                timestamp: new Date().toISOString(),
+                user: currentUser.user
+            };
+            const blob = new Blob([JSON.stringify(fullData, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `BACKUP_MKS_PRO_${new Date().toISOString().split('T')[0]}.mks`;
+            a.click();
+        }
+
+        function importData(e) {
+            const file = e.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const data = JSON.parse(event.target.result);
+                    if(confirm("Écraser les données actuelles avec cette sauvegarde ?")) {
+                        db.set('prospects', data.prospects || []);
+                        db.set('tasks', data.tasks || []);
+                        db.set('meetings', data.meetings || []);
+                        db.set('todos', data.todos || []);
+                        alert("Restauration complète !");
+                        location.reload();
+                    }
+                } catch(err) { alert("Fichier invalide"); }
+            };
+            reader.readAsText(file);
+        }
+
+        // --- SYSTÈME REFRESH & UI ---
+        function refresh() {
+            const prospects = db.get('prospects');
+            const tasks = db.get('tasks');
+            const meetings = db.get('meetings');
+            const todos = db.get('todos');
+
+            // Dashboard Numbers
+            document.getElementById('dash-prospects').innerText = prospects.length;
+            document.getElementById('dash-tasks').innerText = tasks.filter(x => x.state !== 'Terminée').length;
+            document.getElementById('dash-meetings').innerText = meetings.length;
+            document.getElementById('dash-todo').innerText = todos.filter(x => !x.done).length;
+
+            // Render Prospects
+            document.getElementById('prospectsTable').innerHTML = prospects.map(p => `
+                <tr onclick="editProspect(${p.id})" class="clickable-row">
+                    <td class="p-4"><span class="px-3 py-1 ${p.type === 'CLIENT' ? 'bg-emerald-100 text-emerald-700' : 'bg-orange-100 text-orange-700'} rounded-lg text-[9px] font-black">${p.type}</span></td>
+                    <td class="p-4 font-black text-slate-700">${p.name}</td>
+                    <td class="p-4">
+                        <p class="font-bold text-slate-500">${p.company}</p>
+                        <p class="text-[9px] text-indigo-400">${p.rs || ''}</p>
+                    </td>
+                    <td class="p-4 font-medium text-slate-400">${p.manager}</td>
+                    <td class="p-4 italic text-slate-400">${p.origin}</td>
+                    <td class="p-4"><span class="bg-indigo-50 text-indigo-600 px-3 py-1 rounded-full text-[10px] font-black uppercase">${p.status}</span></td>
+                </tr>`).join('');
+
+            // Render Tasks
+            document.getElementById('tasksTable').innerHTML = tasks.map(t => `
+                <tr onclick="editTask(${t.id})" class="clickable-row">
+                    <td class="p-4 font-black text-slate-700">${t.subject}</td>
+                    <td class="p-4 text-slate-500">${t.due}</td>
+                    <td class="p-4"><span class="${t.priority === 'Urgente' ? 'text-red-600 font-black' : 'text-slate-400'} text-xs">${t.priority}</span></td>
+                    <td class="p-4"><span class="bg-slate-100 px-3 py-1 rounded-lg text-[9px] font-black uppercase text-slate-600">${t.state}</span></td>
+                    <td class="p-4 text-slate-400">${t.resp}</td>
+                </tr>`).join('');
+
+            // Render Meetings
+            document.getElementById('meetingsTable').innerHTML = meetings.map(m => `
+                <tr onclick="editMeeting(${m.id})" class="clickable-row">
+                    <td class="p-4 font-black text-slate-700">${m.title}</td>
+                    <td class="p-4 text-indigo-600 font-black">${m.time.replace('T', ' à ')}</td>
+                    <td class="p-4 text-slate-500">${m.loc}</td>
+                    <td class="p-4 font-bold text-slate-400">${m.host}</td>
+                </tr>`).join('');
+
+            // Render To-Do
+            document.getElementById('todoListContainer').innerHTML = todos.map(t => `
+                <div class="group flex items-center gap-4 bg-white p-5 rounded-3xl shadow-sm border-l-8 ${t.done ? 'border-emerald-500 opacity-60' : (t.urgency === 'Vital' ? 'border-red-600' : 'border-yellow-400')}">
+                    <button onclick="toggleTodo(${t.id})" class="w-10 h-10 rounded-2xl border-2 flex items-center justify-center transition-all ${t.done ? 'bg-emerald-500 border-emerald-500 text-white' : 'border-slate-200 hover:border-indigo-400'}">
+                        ${t.done ? '<i class="fas fa-check"></i>' : ''}
+                    </button>
+                    <div class="flex-grow">
+                        <p class="font-black text-slate-800 ${t.done ? 'line-through' : ''}">${t.text}</p>
+                        <div class="flex gap-3 items-center mt-1">
+                            <span class="text-[9px] font-black uppercase px-2 py-0.5 bg-slate-100 rounded text-slate-500">${t.urgency}</span>
+                            <span class="text-[9px] font-bold text-indigo-400"><i class="fas fa-clock mr-1"></i>${t.time.replace('T', ' ')}</span>
+                            ${t.link ? `<span class="text-[9px] font-bold text-emerald-500"><i class="fas fa-user mr-1"></i>${t.link}</span>` : ''}
+                        </div>
+                    </div>
+                    <button onclick="db.set('todos', db.get('todos').filter(x=>x.id!==${t.id}))" class="opacity-0 group-hover:opacity-100 p-3 text-red-200 hover:text-red-500 transition-all"><i class="fas fa-trash"></i></button>
+                </div>`).reverse().join('');
+
+            // Mise à jour sélecteurs
+            const linkSelect = document.getElementById('todo_link');
+            if(linkSelect) linkSelect.innerHTML = `<option value="">-- Lier un contact --</option>` + prospects.map(p => `<option value="${p.name}">${p.name} (${p.company})</option>`).join('');
+
+            updateCharts(prospects);
+        }
+
+        function updateCharts(data) {
+            const ctx = document.getElementById('statusChart');
+            if(charts.c1) charts.c1.destroy();
+            charts.c1 = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Prospects', 'Clients'],
+                    datasets: [{
+                        data: [data.filter(x=>x.type==='PROSPECT').length, data.filter(x=>x.type==='CLIENT').length],
+                        backgroundColor: ['#6366f1', '#10b981'],
+                        borderWidth: 0,
+                        hoverOffset: 10
+                    }]
+                },
+                options: { cutout: '70%', maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+            });
+        }
+
+        // --- ALARMES ---
+        function startAlarmChecker() {
+            setInterval(() => {
+                const now = new Date();
+                const todos = db.get('todos').filter(t => !t.done && t.time);
+                todos.forEach(t => {
+                    const tTime = new Date(t.time);
+                    if(Math.abs(tTime - now) < 40000) triggerAlarm(`${t.text} ${t.link ? '(Client: '+t.link+')' : ''}`);
+                });
+                // Backup reminder at 18h
+                if(now.getHours() === 18 && now.getMinutes() === 0) triggerAlarm("⏰ C'est l'heure de la sauvegarde quotidienne !");
+            }, 60000);
+        }
+
+        function triggerAlarm(msg) {
+            document.getElementById('alarmSound').play();
+            document.getElementById('alarmText').innerText = msg;
+            document.getElementById('alarmPopup').classList.remove('hidden');
+        }
+        function closeAlarm() { document.getElementById('alarmPopup').classList.add('hidden'); document.getElementById('alarmSound').pause(); }
+
+        // --- UI HELPERS ---
+        function switchTab(id) {
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.getElementById('tabTitle').innerText = id === 'todolist' ? 'MA TO-DO LIST PRO' : id.toUpperCase();
+        }
+        function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+        function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+        setInterval(() => { document.getElementById('liveClock').innerText = new Date().toLocaleTimeString('fr-FR'); }, 1000);
+    </script>
+</body>
+</html>
